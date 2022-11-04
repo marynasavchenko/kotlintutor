@@ -1,5 +1,6 @@
 package tech.savchenko.kotlintutor
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.ninjasquad.springmockk.MockkBean
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -9,7 +10,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 
 
 @WebMvcTest(QuestionController::class)
@@ -22,24 +23,29 @@ class QuestionControllerTest(var mockMvc: MockMvc) : ShouldSpec() {
 
     init {
         should("return all questions") {
-            every { questionsService.getAllQuestions() } returns emptyList()
+            val question1 = kotlinQuestion()
+            val question2 = KotlinQuestion(1, "question2", "answer2", 3)
+            every { questionsService.getAllQuestions() } returns listOf(question1, question2)
             mockMvc.perform(MockMvcRequestBuilders.get("/kotlinquestions"))
-                .andExpect(MockMvcResultMatchers.content().json("[]"))
-                .andExpect(MockMvcResultMatchers.status().isOk)
+                .andExpect(status().isOk)
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("\$.[0].question").value(question1.question))
+                .andExpect(jsonPath("\$.[0].answer").value(question1.answer))
+                .andExpect(jsonPath("\$.[0].questionType").value(question1.questionType))
         }
 
         should("post question") {
+            val question = kotlinQuestion()
+            val objectMapper = ObjectMapper()
+            val json = objectMapper.writeValueAsString(question)
             mockMvc.perform(
                 MockMvcRequestBuilders.post("/kotlinquestions")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(
-                        "{ \"question\": \"" + "question1" + "\", " +
-                                "\"answer\":\"" + "answer1" + "\"," +
-                                "\"questionType\":\"" + "4" + "\"}"
-                    )
+                    .content(json)
             )
-                .andExpect(MockMvcResultMatchers.status().isOk)
-            verify { questionsService.addQuestion(kotlinQuestion()) }
+                .andExpect(status().isOk)
+            verify { questionsService.addQuestion(question)
+            }
         }
     }
 
